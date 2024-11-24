@@ -76,6 +76,15 @@ const handler = (io: Server, socket: Socket, rooms: Record<string, Room>, users:
 			socket.emit("error", "The Room operator is the only one who can delete the room!")
 			return
 		}
+		rooms[deleteRoomData.id].players.forEach(u => {
+			const userSocket = io.sockets.sockets.get(u.socketId)
+			if (userSocket)
+			{
+				userSocket.emit("goToLobby");
+			} else {
+				console.log(`deleteRoom::could not find socket for user::${u.username}`)
+			}
+		})
 		delete rooms[deleteRoomData.id];
 		io.emit("roomDeleted", room.name);
 	})
@@ -87,17 +96,13 @@ const handler = (io: Server, socket: Socket, rooms: Record<string, Room>, users:
 			socket.emit('error', 'Room not found');
 			return;
 		}
-		/*console.log(users)*/
-		console.log("players::", rooms[arg.id].players)
 		const user = Object.values(users).find((u) => u.id === arg.userId)
 		if (!user) {
 			socket.emit("error", "Invalid socket");
 			return;
 		}
-		console.log(rooms[arg.id].name, "::", rooms[arg.id].state)
 		
 		const userAlreadyInRoom = rooms[arg.id].players.find(u => u.id === arg.userId)
-		console.log("userAlreadyInRoom:", userAlreadyInRoom)
 		if (userAlreadyInRoom === undefined && rooms[arg.id].state === RoomStateBase.ONGOING)
 		{
 			socket.emit("Cannot join the onGoing game!")
@@ -120,7 +125,6 @@ const handler = (io: Server, socket: Socket, rooms: Record<string, Room>, users:
 			// onSpectatorJoinRoom
 		}*/
 		
-		console.log("joinRoom-handler::", rooms[arg.id].players)
 		socket.emit("enterRoom", { room: rooms[arg.id] })
 		io.emit('playerJoinedRoom', { rooms });
 		socket.join(arg.id);
