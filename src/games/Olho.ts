@@ -203,7 +203,7 @@ export const olhoSocketHandler = (io: Server, socket: Socket, rooms: Record<stri
 				console.log("nextnextPlayer::", nextNextPlayer[0])
 				nextNextPlayer[1].state = PresidentPlayerState.PLAYING
 			}
-			else 
+			else
 			{
 				nextPlayer[1].state = PresidentPlayerState.PLAYING
 			}
@@ -422,7 +422,7 @@ export const olhoRoomGameStarter = (room: PresidentRoom) => {
 	const playerOrder = [startingId, ...room.players.map(u => u.id).filter(v => v !== startingId)]
 	/*const playerOrder = [l as string, ...room.players.map(u => u.id).filter(v => v !== l)]*/
 
-	presidentRooms[room.id] = {...room, hands, currentHand: [], state: RoomStateBase.ONGOING, playerOrder}
+	presidentRooms[room.id] = {...room, hands, roundNumber: 1, currentHand: [], state: RoomStateBase.ONGOING, playerOrder}
 }
 
 const olhoGetNextPlayer = (room: PresidentRoom, userId: string): [string, PresidentPlayer] => {
