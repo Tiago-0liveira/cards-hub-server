@@ -70,6 +70,7 @@ export const olhoSocketHandler = (io: Server, socket: Socket, rooms: Record<stri
 		if (type === PresidentPlayHandType.SKIP) {
 			hand.state = PresidentPlayerState.WAITING
 			const playersInGame = olhoGetPlayersInGame(room)
+			room.lastPlayerAction = PresidentPlayHandType.SKIP
 			if (playersInGame.length === 1) {
 				hand.state = PresidentPlayerState.PASSED
 				const lastPlayerStruct = room.players.find(u => u.id === room.lastPlayer)
@@ -96,11 +97,17 @@ export const olhoSocketHandler = (io: Server, socket: Socket, rooms: Record<stri
 				nextPlayer.state = PresidentPlayerState.PLAYING
 			}
 		} else if (type === PresidentPlayHandType.HAND) {
-			if (cards.length === 0) {
+			room.lastPlayerAction = PresidentPlayHandType.HAND
+			if (cards?.length === 0) {
 				socket.emit("error", "Stop messing with the Api")
 				return
 			}
-			const c = cards[0]
+			const c = cards?.[0]
+			if (!c)
+			{
+				socket.emit("error", "Stop messing with the Api")
+				return
+			}
 			if (!cards?.every(ca => ca.value === c.value))
 			{
 				socket.emit("error", "Stop messing with the Api bro")
@@ -276,7 +283,7 @@ const olhoRoomHandCutValidCheck = (lastHand: Card[], hand: Card[], roundNumber: 
 export const olhoRoomGameStructInitializer = (room: Room) => {
 	if (presidentRooms[room.id]) return
 
-	presidentRooms[room.id] = {...room, hands: {}, currentHand: [], currentPlayer: "", lastPlayer: "", roundNumber: 1, playerOrder: [], rankedGame: false}
+	presidentRooms[room.id] = {...room, hands: {}, currentHand: [], currentPlayer: "", lastPlayer: "", lastPlayerAction: PresidentPlayHandType.HAND, roundNumber: 1, playerOrder: [], rankedGame: false}
 	presidentRooms[room.id].players.forEach(p => {
 		p.ready = false
 	});

@@ -1,4 +1,4 @@
-import { PresidentPosition, RoomStateBase, Suit } from "./enums"
+import { PresidentPlayHandType, PresidentPosition, RoomStateBase, Suit } from "./enums"
 
 declare global {
 	export type Room = {
@@ -54,6 +54,7 @@ declare global {
 		hands: Record<string, PresidentPlayer>,
 		currentHand: Card[][],
 		lastPlayer: string,
+		lastPlayerAction: PresidentPlayHandType
 		currentPlayer: string,
 		roundNumber: number,
 		playerOrder: string[],
