@@ -27,7 +27,7 @@ export enum PresidentPlayerState {
 }
 
 export enum PresidentPlayHandType {
-	SKIP, HAND
+	SKIP, HAND, JOKER
 }
 
 export enum OlhoDonationType {

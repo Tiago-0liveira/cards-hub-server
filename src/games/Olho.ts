@@ -127,6 +127,7 @@ export const olhoSocketHandler = (io: Server, socket: Socket, rooms: Record<stri
 					room.roundNumber++
 					room.currentHand = []
 					room.lastPlayer = userId
+					room.lastPlayerAction = PresidentPlayHandType.JOKER
 					Object.keys(room.hands).forEach(id => {
 						const hand = room.hands[id]
 						if (hand.state < PresidentPlayerState.PLAYING)
