@@ -78,7 +78,6 @@ export const olhoSocketHandler = (io: Server, socket: Socket, rooms: Record<stri
 				{
 					const p = olhoGetNextPlayer(room, lastPlayerStruct.id)
 					room.lastPlayer = p[0]
-					console.log("skip::len=1::", p[1])
 				}
 				room.hands[room.lastPlayer].state = PresidentPlayerState.PLAYING
 				room.lastPlayer = ""
@@ -191,24 +190,19 @@ export const olhoSocketHandler = (io: Server, socket: Socket, rooms: Record<stri
 			room.lastPlayer = nextPlayer[0]
 			if (abafou)
 			{
-				console.log("nextPlayer because who played just finnished and abafou")
 				const nextnextPlayer = olhoGetNextPlayer(room, nextPlayer[0])
 				nextnextPlayer[1].state = PresidentPlayerState.PLAYING
 				room.lastPlayer = nextnextPlayer[0]
 			}
 			else if (nextPlayer !== undefined)
 			{
-				console.log("nextPlayer because who played just finnished the cards: ", nextPlayer[1].hand)
 				nextPlayer[1].state = PresidentPlayerState.PLAYING
 			}
 		} else if (type !== PresidentPlayHandType.SKIP) {
 			hand.state = PresidentPlayerState.WAITING
 			const nextPlayer = olhoGetNextPlayer(room, userId)
-			console.log("id:", userId, ":nextPlayer:", nextPlayer[0])
 			if (abafou) {
-				console.log("abafou")
 				const nextNextPlayer = olhoGetNextPlayer(room, nextPlayer[0])
-				console.log("nextnextPlayer::", nextNextPlayer[0])
 				nextNextPlayer[1].state = PresidentPlayerState.PLAYING
 			}
 			else
@@ -310,6 +304,12 @@ export function olhoOnPlayerJoinRoom(io: Server, room: Room, rooms: Record<strin
 		}
 	} else {
 		pRoom.hands[user.id] = {hand: [], donations: [], handSize: 0, position: PresidentPosition.Neutral, state: PresidentPlayerState.WAITING, lastState: PresidentPlayerState.WAITING}
+		if (pRoom.state !== RoomStateBase.ONGOING) {
+			pRoom.playerOrder.push(user.id)
+			if (pRoom.rankedGame) {
+				olhoReorganizeRanks(pRoom, true, user.id)
+			}
+		}
 		const p = pRoom.players.find(p => p.id === user.id)
 		if (p)
 			p.ready = false
@@ -326,6 +326,9 @@ export function olhoOnPlayerLeaveRoom(io: Server, room: Room, rooms: Record<stri
 		presidentRooms[room.id].hands[user.id].state = PresidentPlayerState.LEFTROOM
 	} else {
 		presidentRooms[room.id].players = presidentRooms[room.id].players.filter(p => p.id !== user.id)
+		if (presidentRooms[room.id].rankedGame) {
+			olhoReorganizeRanks(presidentRooms[room.id], false, user.id)
+		}
 		delete presidentRooms[room.id].hands[user.id]
 	}
 	olhoRoomBroadcastUpdate(io, room.id, rooms)
@@ -384,8 +387,6 @@ export const olhoRoomGameStarter = (room: PresidentRoom) => {
 		{
 			const presiCards = president[1].hand.slice().sort(cards_value_compare).slice(0, 2)
 			const olhoCards = olho[1].hand.slice().sort(cards_value_compare).slice(-2)
-			console.log("presiCards: ", presiCards)
-			console.log("olhoCards: ", olhoCards)
 
 			room.hands[president[0]].hand = removeCards(room.hands[president[0]].hand, presiCards)
 			room.hands[president[0]].hand = room.hands[president[0]].hand.concat(olhoCards)
@@ -408,8 +409,6 @@ export const olhoRoomGameStarter = (room: PresidentRoom) => {
 		{
 			const vicepresiCards = vicepresident[1].hand.slice().sort(cards_value_compare).slice(0,1)
 			const viceolhoCards = viceolho[1].hand.slice().sort(cards_value_compare).slice(-1)
-			console.log("vicepresiCards: ", vicepresiCards)
-			console.log("viceolhoCards: ", viceolhoCards)
 			room.hands[vicepresident[0]].hand = removeCards(room.hands[vicepresident[0]].hand, vicepresiCards)
 			room.hands[vicepresident[0]].hand = room.hands[vicepresident[0]].hand.concat(viceolhoCards)
 			room.hands[vicepresident[0]].donations = [
@@ -427,10 +426,8 @@ export const olhoRoomGameStarter = (room: PresidentRoom) => {
 	}
 
 	hands[startingId].state = PresidentPlayerState.PLAYING
-	const playerOrder = [startingId, ...room.players.map(u => u.id).filter(v => v !== startingId)]
-	/*const playerOrder = [l as string, ...room.players.map(u => u.id).filter(v => v !== l)]*/
 
-	presidentRooms[room.id] = {...room, hands, roundNumber: 1, currentHand: [], state: RoomStateBase.ONGOING, playerOrder}
+	presidentRooms[room.id] = {...room, hands, roundNumber: 1, currentHand: [], state: RoomStateBase.ONGOING}
 }
 
 const olhoGetNextPlayer = (room: PresidentRoom, userId: string): [string, PresidentPlayer] => {
@@ -456,7 +453,6 @@ const olhoGetNextPosition = (room: PresidentRoom): PresidentPosition => {
 	const playersNum = room.players.length
 	const playersLeft = Object.entries(room.hands).filter(([handId, hand]) => hand.hand.length > 0).length
 
-	console.log(`olhoGetNextPosition::${playersLeft}/${playersNum}`)
 	if (playersNum - playersLeft === 1) return PresidentPosition.PRESIDENT
 	else if (playersNum - playersLeft === 2) {
 		if (playersNum === 3)
@@ -471,18 +467,59 @@ const olhoGetPlayersInGame = (room: PresidentRoom): [string, PresidentPlayer][] 
 	return Object.entries(room.hands).filter(([id, pp]) => pp.state === PresidentPlayerState.WAITING || (pp.state === PresidentPlayerState.LEFTROOM && pp.lastState === PresidentPlayerState.WAITING))
 }
 
-const olhoReorganizeRanks = (room: PresidentRoom, joined: boolean) => {
+const olhoReorganizeRanks = (room: PresidentRoom, joined: boolean, new_user_id: string) => {
 	const handsArr = Object.entries(room.hands)
-	const last2Ranks = handsArr.sort((a, b) => b[1].position - a[1].position).slice(handsArr.length - 2, handsArr.length)
-	const [lastButOne, last] = last2Ranks
-	if (joined)
-	{
-		last[1].position++
-		if (handsArr.length === 3)
-			lastButOne[1].position = PresidentPosition.VICE_PRESIDENT
-		else
-			lastButOne[1].position++
+	let ranksList = handsArr.sort((a,b) => b[1].position - a[1].position).filter(hand => hand[0] !== new_user_id)
+	
+	if (joined) {
+		room.hands[new_user_id].position = PresidentPosition.OLHO;
+		if (ranksList.length === 0) {
+			room.hands[new_user_id].position = PresidentPosition.Neutral;
+		}
+		else if (ranksList.length === 1) {
+			ranksList[0][1].position = PresidentPosition.PRESIDENT;
+		}
+		else if (ranksList.length === 2) {
+			ranksList[0][1].position = PresidentPosition.Neutral;
+		}
+		else if (ranksList.length === 3) {
+			ranksList[0][1].position = PresidentPosition.VICE_OLHO;
+			ranksList[1][1].position = PresidentPosition.Neutral;
+		} else {
+			/* subir todos os que estao abaixo de neutro para introduzir o novo a olho */
+			for (let i = 0; i < ranksList.length; i++) {
+				if (ranksList[0][1].position >= PresidentPosition.Neutral)
+					break;
+				ranksList[0][1].position--
+			}
+		}
 	} else {
-		// TODO: implement when player leaves aka !joined or else
+		const playerLeft = room.hands[new_user_id]
+		if (ranksList.length === 1) {
+			ranksList[0][1].position = PresidentPosition.Neutral;
+		} else if (ranksList.length === 2) {
+			ranksList[0][1].position = PresidentPosition.OLHO;
+			ranksList[1][1].position = PresidentPosition.PRESIDENT;
+		} else if (ranksList.length === 3) {
+            ranksList[0][1].position = PresidentPosition.OLHO;
+			ranksList[1][1].position = PresidentPosition.Neutral;
+            ranksList[2][1].position = PresidentPosition.PRESIDENT;
+        } else if (ranksList.length === 4) {
+            ranksList[0][1].position = PresidentPosition.OLHO;
+            ranksList[1][1].position = PresidentPosition.VICE_OLHO;
+            ranksList[2][1].position = PresidentPosition.VICE_PRESIDENT;
+            ranksList[3][1].position = PresidentPosition.PRESIDENT;
+        } else {
+            // More than 4 players: president, vice president, neutrals, vice-olho, olho
+            ranksList[0][1].position = PresidentPosition.OLHO;
+            ranksList[1][1].position = PresidentPosition.VICE_OLHO;
+
+            for (let i = 2; i < ranksList.length - 2; i++) {
+                ranksList[i][1].position = PresidentPosition.Neutral;
+            }
+
+            ranksList[ranksList.length - 2][1].position = PresidentPosition.VICE_PRESIDENT;
+            ranksList[ranksList.length - 1][1].position = PresidentPosition.PRESIDENT;
+        }
 	}
 }
