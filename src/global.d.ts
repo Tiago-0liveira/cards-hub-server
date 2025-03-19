@@ -1,4 +1,4 @@
-import { PresidentPlayHandType, PresidentPosition, RoomStateBase, Suit } from "./enums"
+import { PresidentPlayHandType, PresidentPosition, RoomStateBase, SoundName, Suit } from "./enums"
 
 declare global {
 	export type Room = {
@@ -57,7 +57,18 @@ declare global {
 		lastPlayerAction: PresidentPlayHandType
 		currentPlayer: string,
 		roundNumber: number,
+		handNumber: number,
 		playerOrder: string[],
-		rankedGame: boolean
+		rankedGame: boolean,
+		audioLogs: Record<string, SoundLog[]>
+	}
+
+	export type AudioCall = {
+		dest: "all" | string,
+		sound: SoundName
+	}
+	export type SoundLog = {
+		sound: SoundName,
+		handNumber: number
 	}
 }
