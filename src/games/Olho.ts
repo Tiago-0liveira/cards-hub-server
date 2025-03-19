@@ -156,13 +156,12 @@ export const olhoSocketHandler = (io: Server, socket: Socket, rooms: Record<stri
 				socket.emit("error", "You need to respect the last player's hand")
 				return
 			}
-			/* TODO: uncomment */
-			/*if (room.roundNumber === 1 && lastHand.length === 0 && 
+			if (room.roundNumber === 1 && lastHand.length === 0 && 
 				!room.rankedGame && !cards.some(c => c.value === "3" && c.suit === Suit.CLUBS))
 			{
 				socket.emit("error", "In the first round you HAVE to play the 3 of clubs!")
 				return
-			}*/
+			}
 			if (lastHand.length !== 0)
 			{
 				if (lastHand[0].value === "7" && !isCutting && cards_value_is_bigger(c, lastHand[0])) {
@@ -261,19 +260,21 @@ const olhoRoomBroadcastUpdate = (io: Server, roomId: string, rooms: Record<strin
 			}
 		}
 		playerSocket.emit("presidentRoomInfo", { room: roomData });
-		for (const audio of audios) {
-			if (audio.dest === "all" || audio.dest === player.id) {
-				playerSocket.emit("play_audio", audio.sound)
+		if (room.state === RoomStateBase.ONGOING) {
+			for (const audio of audios) {
+				if (audio.dest === "all" || audio.dest === player.id) {
+					playerSocket.emit("play_audio", audio.sound)
+				}
 			}
-		}
-		if (room.hands[player.id].state === PresidentPlayerState.PLAYING) {
-			/* as this will be triggered every call if nothing changed we need to log the audioCall to the frontend */
-			if (!room.audioLogs[player.id]) {
-				room.audioLogs[player.id] = []
-			}
-			if (!room.audioLogs[player.id].find(log => log.handNumber === room.handNumber && log.sound === SoundName.READY_TO_PLAY)) {
-				room.audioLogs[player.id].push({handNumber: room.handNumber, sound: SoundName.READY_TO_PLAY})
-				playerSocket.emit("play_audio", SoundName.READY_TO_PLAY)
+			if (room.hands[player.id].state === PresidentPlayerState.PLAYING) {
+				/* as this will be triggered every call if nothing changed we need to log the audioCall to the frontend */
+				if (!room.audioLogs[player.id]) {
+					room.audioLogs[player.id] = []
+				}
+				if (!room.audioLogs[player.id].find(log => log.handNumber === room.handNumber && log.sound === SoundName.READY_TO_PLAY)) {
+					room.audioLogs[player.id].push({handNumber: room.handNumber, sound: SoundName.READY_TO_PLAY})
+					playerSocket.emit("play_audio", SoundName.READY_TO_PLAY)
+				}
 			}
 		}
 	}
@@ -378,7 +379,10 @@ export function olhoOnSetUserReady(io: Server, room: Room, userId: string, ready
 export const olhoRoomGameStarter = (room: PresidentRoom) => {
 	const hands = room.hands
 
-	const shuffledDeck = shuffleArray([...DECK])
+	const shuffledDeck = [...DECK]
+	for (let i = 0; i < Math.floor(Math.random() * 2); i++) {
+		shuffleArray(shuffledDeck)
+	}
 	if (room.players.length === 0) return
 	let x = 0;
 	const rankedPlayers = Object.entries(hands).filter(([id, p]) => p.position !== PresidentPosition.Neutral)
