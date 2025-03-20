@@ -12,12 +12,23 @@ const socketSendUserUpdate = (socket: Socket, users: Record<string, User>, user:
 }
 
 const handler = (io: Server, socket: Socket, rooms: Record<string, Room>, users: Record<string, User>) => {
-	socket.on("createUserId", ({ username }) => {
+	socket.on("createUserId", ({ username }: {username: string}) => {
 		console.log(`createUserId::${username}`)
-		const key = createRandomId()
-		users[key] = { id: key, username, socketId: socket.id, ready: false }
-		console.log(users)
-		socketSendUserUpdate(socket, users, users[key])
+		const userEntry = Object.entries(users).find(u => u[1].username === username)
+		if (userEntry) {
+			const userSock = io.sockets.sockets.get(userEntry[1].socketId)
+			if (userSock && userSock.connected) {
+				return socket.emit("error", "Username already in use!")
+			} else {
+				users[userEntry[0]].socketId = socket.id
+				users[userEntry[0]].ready = false
+				socketSendUserUpdate(socket, users, users[userEntry[0]])
+			}
+		} else {
+			const key = createRandomId()
+			users[key] = { id: key, username, socketId: socket.id, ready: false }
+			socketSendUserUpdate(socket, users, users[key])
+		}
 		/*socket.emit("userUpdate", { user: users[key] })*/
 		saveUsersToFile(users)
 	})

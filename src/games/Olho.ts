@@ -245,6 +245,9 @@ const olhoRoomBroadcastUpdate = (io: Server, roomId: string, rooms: Record<strin
 			room.handNumber = 1
 		}
 	}
+	if (room.handNumber === 1 && room.currentHand.length === 0) {
+		room.audioLogs = {}
+	}
 	for (const player of room.players) {
 		const playerSocket = io.sockets.sockets.get(player.socketId);
 		if (!playerSocket) continue;
@@ -322,7 +325,7 @@ export function olhoOnPlayerJoinRoom(io: Server, room: Room, rooms: Record<strin
 	if (pRoom)
 	{
 		const fp = pRoom.players.find(u => u.id === user.id)
-		if (fp)
+		if (fp)/* atualizar socketId (pode ser uma nova) */
 			fp.socketId = user.socketId
 		else {
 			pRoom.players.push(user)
@@ -334,7 +337,12 @@ export function olhoOnPlayerJoinRoom(io: Server, room: Room, rooms: Record<strin
 			pPlayer.lastState = PresidentPlayerState.LEFTROOM
 		}
 	} else {
-		pRoom.hands[user.id] = {hand: [], donations: [], handSize: 0, position: PresidentPosition.Neutral, state: PresidentPlayerState.WAITING, lastState: PresidentPlayerState.WAITING}
+		pRoom.hands[user.id] = {
+			hand: [], donations: [], handSize: 0, 
+			position: PresidentPosition.Neutral, 
+			state: PresidentPlayerState.WAITING,
+			lastState: PresidentPlayerState.WAITING
+		}
 		if (pRoom.state !== RoomStateBase.ONGOING) {
 			pRoom.playerOrder.push(user.id)
 			if (pRoom.rankedGame) {
@@ -380,7 +388,7 @@ export const olhoRoomGameStarter = (room: PresidentRoom) => {
 	const hands = room.hands
 
 	const shuffledDeck = [...DECK]
-	for (let i = 0; i < Math.floor(Math.random() * 2); i++) {
+	for (let i = 0; i < Math.floor((Math.random() + 1) * 2); i++) {
 		shuffleArray(shuffledDeck)
 	}
 	if (room.players.length === 0) return

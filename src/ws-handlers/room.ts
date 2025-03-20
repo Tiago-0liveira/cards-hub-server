@@ -102,15 +102,6 @@ const handler = (io: Server, socket: Socket, rooms: Record<string, Room>, users:
 			return;
 		}
 		
-		const userAlreadyInRoom = rooms[arg.id].players.find(u => u.id === arg.userId)
-		if (userAlreadyInRoom === undefined && rooms[arg.id].state === RoomStateBase.ONGOING)
-		{
-			socket.emit("Cannot join the onGoing game!")
-			console.log(`Emitted cannot join game for user::${user.username}|room::${rooms[arg.id].name}`)
-			return
-		}
-		if (userAlreadyInRoom === undefined)
-			rooms[arg.id].players.push({...user, ready: false});
 		onPlayerJoinRoom(rooms[arg.id].type, io, rooms[arg.id], rooms, user)
 		
 		// TODO: activate code in the future for allowing spectators
