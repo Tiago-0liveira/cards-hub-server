@@ -102,6 +102,13 @@ const handler = (io: Server, socket: Socket, rooms: Record<string, Room>, users:
 			return;
 		}
 		
+		const isInAnotherRoom = Object.entries(rooms).find(ent => ent[1].players.some(u => u.id === arg.userId))
+		if (isInAnotherRoom && isInAnotherRoom[0] !== arg.id)
+		{
+			socket.emit("error", "You cannot join another room while in a room with a ongoing game!");
+			return;
+		}
+
 		onPlayerJoinRoom(rooms[arg.id].type, io, rooms[arg.id], rooms, user)
 		
 		// TODO: activate code in the future for allowing spectators
