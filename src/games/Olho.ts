@@ -534,9 +534,9 @@ const olhoReorganizeRanks = (room: PresidentRoom, joined: boolean, new_user_id: 
 		} else {
 			/* subir todos os que estao abaixo de neutro para introduzir o novo a olho */
 			for (let i = 0; i < ranksList.length; i++) {
-				if (ranksList[0][1].position >= PresidentPosition.Neutral)
+				if (ranksList[i][1].position <= PresidentPosition.Neutral)
 					break;
-				ranksList[0][1].position--
+				ranksList[i][1].position--
 			}
 		}
 	} else {
