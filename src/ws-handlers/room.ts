@@ -4,12 +4,13 @@ import { GameType, RoomStateBase } from "../enums";
 import { ensureRoomExists, onPlayerJoinRoom, onPlayerLeaveRoom, onSetUserReady } from "../games/general";
 
 export const leaveRoomHandler = (io: Server, socket: Socket, rooms: Record<string, Room>, users: Record<string, User>) => ({ id, userId }: { id: string, userId: string }) => {
-	console.log(`--------------leaveRoom::id:${id}::userId::${userId}`)
+	console.log(`--------leaveRoom::id:${id}::userId::${userId}`)
 	const r = rooms[id]
 	if (!r) {
 		socket.emit("error", "Room not found")
 		return
 	}
+
 	const p = r.players.find(u => u.id === userId)
 	if (!p)
 	{
@@ -17,8 +18,8 @@ export const leaveRoomHandler = (io: Server, socket: Socket, rooms: Record<strin
 		return
 	}
 	onPlayerLeaveRoom(r.type, io, r, rooms, p)
-	if (r.state === RoomStateBase.IDLE)
-		r.players = r.players.filter((value) => value.socketId !== socket.id)
+
+	r.players = r.players.filter((value) => value.socketId !== socket.id)
 
 	io.emit("playerLeftRoom", { rooms })
 	socket.leave(id)
@@ -91,7 +92,7 @@ const handler = (io: Server, socket: Socket, rooms: Record<string, Room>, users:
 	
 
 	socket.on('joinRoom', (arg: { id: string, userId: string }) => {
-		console.log(`-------------joinRoom::${arg.id}::${arg.userId}----------`)
+		console.log(`---------joinRoom::${arg.id}::${arg.userId}----------`)
 		if (!rooms[arg.id]) {
 			socket.emit('error', 'Room not found');
 			return;
@@ -108,9 +109,9 @@ const handler = (io: Server, socket: Socket, rooms: Record<string, Room>, users:
 			socket.emit("error", "You cannot join another room while in a room with a ongoing game!");
 			return;
 		}
-
-		onPlayerJoinRoom(rooms[arg.id].type, io, rooms[arg.id], rooms, user)
 		
+		rooms[arg.id].players.push(user)
+		onPlayerJoinRoom(rooms[arg.id].type, io, rooms[arg.id], rooms, user)
 		// TODO: activate code in the future for allowing spectators
 		/*if (rooms[arg.id].state === RoomStateBase.IDLE) {
 			console.log("added players")
