@@ -243,6 +243,7 @@ const olhoRoomBroadcastUpdate = (io: Server, roomId: string, rooms: Record<strin
 			room.rankedGame = true
 			room.audioLogs = {}
 			room.handNumber = 1
+			room.lastPlayer = ""
 		}
 	}
 	if (room.handNumber === 1 && room.currentHand.length === 0) {
