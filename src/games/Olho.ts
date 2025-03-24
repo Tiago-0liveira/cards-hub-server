@@ -82,18 +82,15 @@ export const olhoSocketHandler = (io: Server, socket: Socket, rooms: Record<stri
 				if (lastPlayerStruct && room.hands[lastPlayerStruct.id].hand.length === 0)
 				{
 					const p = olhoGetNextPlayer(room, lastPlayerStruct.id)
-					room.lastPlayer = p[0]
+					room.winningPlayer = p[0]
 				}
-				olhoPlayerSetState(room.hands[room.lastPlayer], PresidentPlayerState.PLAYING)
-				room.lastPlayer = ""
+				if (room.winningPlayer !== "") {
+					olhoPlayerSetState(room.hands[room.winningPlayer], PresidentPlayerState.PLAYING)
+				}
 				room.roundNumber++
 				room.handNumber = 0
 				room.currentHand = []
-				Object.keys(room.hands).forEach(id => {
-					const hand = room.hands[id]
-					if (hand.state < PresidentPlayerState.PLAYING)
-						olhoPlayerSetState(hand, PresidentPlayerState.WAITING)
-				})
+				olhoResetPlayerHands(room)
 			} else {
 				const [nPId, nextPlayer] = olhoGetNextPlayer(room, userId)
 				hand.state = PresidentPlayerState.PASSED
@@ -129,6 +126,8 @@ export const olhoSocketHandler = (io: Server, socket: Socket, rooms: Record<stri
 					room.handNumber = 0
 					room.currentHand = []
 					room.lastPlayerAction = PresidentPlayHandType.JOKER
+					hand.state = PresidentPlayerState.PLAYING
+					olhoResetPlayerHands(room)
 				}
 			} else if (lastHand.length !== 0 && lastHand.length !== cards.length)
 			{
@@ -156,7 +155,7 @@ export const olhoSocketHandler = (io: Server, socket: Socket, rooms: Record<stri
 				abafou = true
 				audios.push({dest: "all", sound: SoundName.OLHO_ABAFADO})
 			}
-			room.lastPlayer = userId
+			room.winningPlayer = userId
 			if (cards.every(c => c.value !== "JOKER"))
 				room.currentHand.push(cards)
 			hand.hand = removeCards(hand.hand, cards)
@@ -165,22 +164,15 @@ export const olhoSocketHandler = (io: Server, socket: Socket, rooms: Record<stri
 		{
 			hand.state = PresidentPlayerState.FINNISHED
 			hand.position = olhoGetNextPosition(room)
-			if (olhoGetPlayersInGame(room).length === 0)
-			{
-				Object.keys(room.hands).forEach(handId => {
-					const shand = room.hands[handId]
-					const st = shand.state
-					if (st < PresidentPlayerState.PLAYING)
-						olhoPlayerSetState(shand, PresidentPlayerState.WAITING)
-				})
+			if (olhoGetPlayersInGame(room).length === 0) {
+				olhoResetPlayerHands(room)
 			}
 			const nextPlayer = olhoGetNextPlayer(room, userId)
-			room.lastPlayer = nextPlayer[0]
-			if (abafou)
-			{
+			room.winningPlayer = nextPlayer[0]
+			if (abafou) {
 				const nextnextPlayer = olhoGetNextPlayer(room, nextPlayer[0])
 				olhoPlayerSetState(nextnextPlayer[1], PresidentPlayerState.PLAYING)
-				room.lastPlayer = nextnextPlayer[0]
+				room.winningPlayer = nextnextPlayer[0]
 			}
 			else if (nextPlayer !== undefined)
 			{
@@ -193,8 +185,7 @@ export const olhoSocketHandler = (io: Server, socket: Socket, rooms: Record<stri
 				const nextNextPlayer = olhoGetNextPlayer(room, nextPlayer[0])
 				olhoPlayerSetState(nextNextPlayer[1], PresidentPlayerState.PLAYING)
 			}
-			else
-			{
+			else {
 				olhoPlayerSetState(nextPlayer[1], PresidentPlayerState.PLAYING)
 			}
 		}
@@ -223,6 +214,7 @@ const olhoRoomBroadcastUpdate = (io: Server, roomId: string, rooms: Record<strin
 			room.rankedGame = true
 			room.audioLogs = {}
 			room.handNumber = 1
+			room.winningPlayer = ""
 			room.lastPlayer = ""
 		}
 	}
@@ -291,9 +283,9 @@ export const olhoRoomGameStructInitializer = (room: Room) => {
 	if (presidentRooms[room.id]) return
 
 	presidentRooms[room.id] = {
-		...room, hands: {}, currentHand: [], currentPlayer: "", lastPlayer: "", 
-		lastPlayerAction: PresidentPlayHandType.HAND, roundNumber: 1, handNumber: 1, 
-		playerOrder: [], rankedGame: false, audioLogs: {}
+		...room, hands: {}, currentHand: [], currentPlayer: "", winningPlayer: "",
+		lastPlayer: "", lastPlayerAction: PresidentPlayHandType.HAND, roundNumber: 1,
+		handNumber: 1, playerOrder: [], rankedGame: false, audioLogs: {}
 	}
 	presidentRooms[room.id].players.forEach(p => {
 		p.ready = false
@@ -454,7 +446,10 @@ export const olhoRoomGameStarter = (room: PresidentRoom) => {
 
 	hands[startingId].state = PresidentPlayerState.PLAYING
 
-	presidentRooms[room.id] = {...room, hands, roundNumber: 1, currentHand: [], state: RoomStateBase.ONGOING}
+	presidentRooms[room.id] = {
+		...room, hands, roundNumber: 1, winningPlayer: startingId,
+		currentHand: [], state: RoomStateBase.ONGOING,
+	}
 }
 
 const olhoGetNextPlayer = (room: PresidentRoom, userId: string): [string, PresidentPlayer] => {
@@ -557,4 +552,12 @@ const olhoPlayerSetState = (player: PresidentPlayer, state: PresidentPlayerState
 	} else {
 		player.state = state
 	}
+}
+
+const olhoResetPlayerHands = (room: PresidentRoom) => {
+	Object.keys(room.hands).forEach(id => {
+		const hand = room.hands[id]
+		if (hand.state < PresidentPlayerState.PLAYING)
+			olhoPlayerSetState(hand, PresidentPlayerState.WAITING)
+	})
 }
