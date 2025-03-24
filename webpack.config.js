@@ -20,10 +20,5 @@ module.exports = {
 				exclude: /node_modules/,
 			},
 		],
-	},
-	devServer: {
-		hot: true,
-		port: 3000,
-		watchFiles: ["src/**/*.ts"]
-	},
+	}
 };

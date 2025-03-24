@@ -10,20 +10,24 @@ declare global {
 		type: number;
 		state: RoomStateBase
 	};
-	
+
+	export type Stats = {
+		gameType: GameType,
+	}
+
 	export type User = {
 		id: string,
 		username: string,
 		socketId: string,
 		ready: boolean
 	}
-	
+
 	export type NewRoomFormData = {
 		user_id: string
 		roomName: string;
 		gameType: number;
 	}
-	
+
 	export type DeleteRoomData = {
 		id: string;
 		userId: string
@@ -53,6 +57,7 @@ declare global {
 	export type PresidentRoom = Room & {
 		hands: Record<string, PresidentPlayer>,
 		currentHand: Card[][],
+		winningPlayer: string,
 		lastPlayer: string,
 		lastPlayerAction: PresidentPlayHandType
 		currentPlayer: string,
