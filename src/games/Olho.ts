@@ -14,7 +14,7 @@ export const olhoSocketHandler = (io: Server, socket: Socket, rooms: Record<stri
 			console.log(`presidentRoomGetInfo::${user.username}::${user.id}`)
 		else
 			console.log(`presidentRoomGetInfo::Not found::${id}, userId:${userId}, socketId:${socket.id}}`)
-		
+
 		if (!presidentRooms[id])
 		{
 			console.log("Invalid presidentRoom id")
@@ -77,20 +77,21 @@ export const olhoSocketHandler = (io: Server, socket: Socket, rooms: Record<stri
 			const playersInGame = olhoGetPlayersInGame(room)
 			room.lastPlayerAction = PresidentPlayHandType.SKIP
 			if (playersInGame.length === 1) {
-				hand.state = PresidentPlayerState.PASSED
-				const lastPlayerStruct = room.players.find(u => u.id === room.lastPlayer)
-				if (lastPlayerStruct && room.hands[lastPlayerStruct.id].hand.length === 0)
-				{
-					const p = olhoGetNextPlayer(room, lastPlayerStruct.id)
-					room.winningPlayer = p[0]
-				}
+				olhoResetPlayerHands(room)
+				let p: [string, PresidentPlayer] | null = null;
 				if (room.winningPlayer !== "") {
-					olhoPlayerSetState(room.hands[room.winningPlayer], PresidentPlayerState.PLAYING)
+					p = [room.winningPlayer, room.hands[room.winningPlayer]]
+				} else {
+					p = olhoGetNextPlayer(room, userId)
 				}
+				p[1].state = PresidentPlayerState.PLAYING
+				room.winningPlayer = p[0]
+				olhoPlayerSetState(p[1], PresidentPlayerState.PLAYING)
+
 				room.roundNumber++
 				room.handNumber = 0
 				room.currentHand = []
-				olhoResetPlayerHands(room)
+				room.lastPlayer = ""
 			} else {
 				const [nPId, nextPlayer] = olhoGetNextPlayer(room, userId)
 				hand.state = PresidentPlayerState.PASSED
@@ -125,8 +126,10 @@ export const olhoSocketHandler = (io: Server, socket: Socket, rooms: Record<stri
 					room.roundNumber++
 					room.handNumber = 0
 					room.currentHand = []
+					room.lastPlayer = ""
 					room.lastPlayerAction = PresidentPlayHandType.JOKER
 					hand.state = PresidentPlayerState.PLAYING
+					audios.push({dest: "all", sound: SoundName.JOKER})
 					olhoResetPlayerHands(room)
 				}
 			} else if (lastHand.length !== 0 && lastHand.length !== cards.length)
@@ -157,12 +160,15 @@ export const olhoSocketHandler = (io: Server, socket: Socket, rooms: Record<stri
 			}
 			room.winningPlayer = userId
 			if (cards.every(c => c.value !== "JOKER"))
+			{
 				room.currentHand.push(cards)
+				room.lastPlayer = userId
+			}
 			hand.hand = removeCards(hand.hand, cards)
 		}
 		if (hand.hand.length === 0)
 		{
-			hand.state = PresidentPlayerState.FINNISHED
+			hand.state = PresidentPlayerState.FINISHED
 			hand.position = olhoGetNextPosition(room)
 			if (olhoGetPlayersInGame(room).length === 0) {
 				olhoResetPlayerHands(room)
@@ -196,7 +202,7 @@ export const olhoSocketHandler = (io: Server, socket: Socket, rooms: Record<stri
 
 const olhoRoomBroadcastUpdate = (io: Server, roomId: string, rooms: Record<string, Room>, audios: AudioCall[]) => {
 	const room = presidentRooms[roomId];
-	
+
 	if (room === undefined) {
 		console.error(`Room with ID ${roomId} does not exist.`);
 		return;
@@ -259,7 +265,7 @@ const olhoRoomBroadcastUpdate = (io: Server, roomId: string, rooms: Record<strin
 const olhoRoomHandCutValidCheck = (lastHand: Card[], hand: Card[], roundNumber: number): [boolean, string] => {
 	if (roundNumber === 1) return [false, "Cannot cut in the first round!"]
 	if (hand.some(c => c.value === "JOKER")) return [true, ""]
-	
+
 	if (lastHand.length === 1) return [true, ""]
 	if (lastHand.length === 0 && hand.length > 1 && hand.some(c => c.value === "2"))
 	{
@@ -275,7 +281,7 @@ const olhoRoomHandCutValidCheck = (lastHand: Card[], hand: Card[], roundNumber: 
 	}
 	else if (hand.length < lastHand.length - 1)
 		return [false, "Invalid Cut"]
-	
+
 	return [true, ""]
 }
 
@@ -311,8 +317,8 @@ export function olhoOnPlayerJoinRoom(io: Server, room: Room, rooms: Record<strin
 		}
 	} else {
 		pRoom.hands[user.id] = {
-			hand: [], donations: [], handSize: 0, 
-			position: PresidentPosition.Neutral, 
+			hand: [], donations: [], handSize: 0,
+			position: PresidentPosition.Neutral,
 			state: PresidentPlayerState.WAITING,
 			lastState: PresidentPlayerState.WAITING
 		}
@@ -326,7 +332,7 @@ export function olhoOnPlayerJoinRoom(io: Server, room: Room, rooms: Record<strin
 		if (p)
 			p.ready = false
 	}
-	
+
 	/*io.to(room.id).emit("presidentRoomInfo", { room: pRoom })*/
 	olhoRoomBroadcastUpdate(io, room.id, rooms, [])
 }
@@ -378,6 +384,10 @@ export const olhoRoomGameStarter = (room: PresidentRoom) => {
 			hands[player.id].state = PresidentPlayerState.WAITING
 		}
 		hands[player.id].hand.push(shuffledDeck[index])
+		/*if (index === 0)
+		{
+			hands[player.id].hand.push({value: "JOKER", suit: Suit.CLUBS})
+		}*/
 		if (!room.rankedGame && shuffledDeck[index].value === "3" && shuffledDeck[index].suit === Suit.CLUBS)
 		{
 			hands[player.id].state = PresidentPlayerState.PLAYING
@@ -401,7 +411,7 @@ export const olhoRoomGameStarter = (room: PresidentRoom) => {
 				startingId = olhoG[0]
 			}
 		}
-		
+
 		if (president && olho)
 		{
 			const presiCards = president[1].hand.slice().sort(cards_value_compare).slice(0, 2)
@@ -434,7 +444,7 @@ export const olhoRoomGameStarter = (room: PresidentRoom) => {
 				{type: OlhoDonationType.INCOMING, cards: viceolhoCards},
 				{type: OlhoDonationType.OUTGOING, cards: vicepresiCards}
 			]
-			
+
 			room.hands[viceolho[0]].hand = removeCards(room.hands[viceolho[0]].hand, viceolhoCards)
 			room.hands[viceolho[0]].hand = room.hands[viceolho[0]].hand.concat(vicepresiCards)
 			room.hands[viceolho[0]].donations = [
@@ -467,7 +477,7 @@ const olhoGetNextPlayer = (room: PresidentRoom, userId: string): [string, Presid
 		pId = room.playerOrder[Idx]
 		player = room.hands[pId]
 	} while (player === undefined || player.state === PresidentPlayerState.PASSED ||
-			 player.state === PresidentPlayerState.FINNISHED || player.hand.length === 0)
+	player.state === PresidentPlayerState.FINISHED || player.hand.length === 0)
 	return [pId, player]
 }
 
@@ -492,7 +502,8 @@ const olhoGetPlayersInGame = (room: PresidentRoom): [string, PresidentPlayer][] 
 const olhoReorganizeRanks = (room: PresidentRoom, joined: boolean, new_user_id: string) => {
 	const handsArr = Object.entries(room.hands)
 	let ranksList = handsArr.sort((a,b) => b[1].position - a[1].position).filter(hand => hand[0] !== new_user_id)
-	
+
+	/* TODO: make this code cleaner */
 	if (joined) {
 		room.hands[new_user_id].position = PresidentPosition.OLHO;
 		if (ranksList.length === 0) {
@@ -523,26 +534,26 @@ const olhoReorganizeRanks = (room: PresidentRoom, joined: boolean, new_user_id: 
 			ranksList[0][1].position = PresidentPosition.OLHO;
 			ranksList[1][1].position = PresidentPosition.PRESIDENT;
 		} else if (ranksList.length === 3) {
-            ranksList[0][1].position = PresidentPosition.OLHO;
+			ranksList[0][1].position = PresidentPosition.OLHO;
 			ranksList[1][1].position = PresidentPosition.Neutral;
-            ranksList[2][1].position = PresidentPosition.PRESIDENT;
-        } else if (ranksList.length === 4) {
-            ranksList[0][1].position = PresidentPosition.OLHO;
-            ranksList[1][1].position = PresidentPosition.VICE_OLHO;
-            ranksList[2][1].position = PresidentPosition.VICE_PRESIDENT;
-            ranksList[3][1].position = PresidentPosition.PRESIDENT;
-        } else {
-            // More than 4 players: president, vice president, neutrals, vice-olho, olho
-            ranksList[0][1].position = PresidentPosition.OLHO;
-            ranksList[1][1].position = PresidentPosition.VICE_OLHO;
+			ranksList[2][1].position = PresidentPosition.PRESIDENT;
+		} else if (ranksList.length === 4) {
+			ranksList[0][1].position = PresidentPosition.OLHO;
+			ranksList[1][1].position = PresidentPosition.VICE_OLHO;
+			ranksList[2][1].position = PresidentPosition.VICE_PRESIDENT;
+			ranksList[3][1].position = PresidentPosition.PRESIDENT;
+		} else {
+			// More than 4 players: president, vice president, neutrals, vice-olho, olho
+			ranksList[0][1].position = PresidentPosition.OLHO;
+			ranksList[1][1].position = PresidentPosition.VICE_OLHO;
 
-            for (let i = 2; i < ranksList.length - 2; i++) {
-                ranksList[i][1].position = PresidentPosition.Neutral;
-            }
+			for (let i = 2; i < ranksList.length - 2; i++) {
+				ranksList[i][1].position = PresidentPosition.Neutral;
+			}
 
-            ranksList[ranksList.length - 2][1].position = PresidentPosition.VICE_PRESIDENT;
-            ranksList[ranksList.length - 1][1].position = PresidentPosition.PRESIDENT;
-        }
+			ranksList[ranksList.length - 2][1].position = PresidentPosition.VICE_PRESIDENT;
+			ranksList[ranksList.length - 1][1].position = PresidentPosition.PRESIDENT;
+		}
 	}
 }
 

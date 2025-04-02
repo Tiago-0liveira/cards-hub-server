@@ -23,7 +23,7 @@ export enum PresidentPosition {
 }
 
 export enum PresidentPlayerState {
-	PASSED, WAITING, PLAYING, FINNISHED, LEFTROOM
+	PASSED, WAITING, PLAYING, FINISHED, LEFTROOM
 }
 
 export enum PresidentPlayHandType {
@@ -36,5 +36,6 @@ export enum OlhoDonationType {
 
 export enum SoundName {
 	READY_TO_PLAY,
-	OLHO_ABAFADO
+	OLHO_ABAFADO,
+	JOKER,
 }
