@@ -2,6 +2,7 @@ import { Server, Socket } from "socket.io";
 import { cards_value_compare, cards_value_is_bigger, DECK, removeCards } from "./cards";
 import { shuffleArray } from "../utils";
 import { OlhoDonationType, PresidentPlayerState, PresidentPlayHandType, PresidentPosition, RoomStateBase, SoundName, Suit } from "../enums";
+import { DEV, OLHO_QUICK_GAME } from "../config";
 
 const presidentRooms: Record<string, PresidentRoom> = {}
 
@@ -137,11 +138,14 @@ export const olhoSocketHandler = (io: Server, socket: Socket, rooms: Record<stri
 				socket.emit("error", "You need to respect the last player's hand")
 				return
 			}
-			if (room.roundNumber === 1 && lastHand.length === 0 && 
-				!room.rankedGame && !cards.some(c => c.value === "3" && c.suit === Suit.CLUBS))
+			if (!DEV || (DEV && !OLHO_QUICK_GAME))
 			{
-				socket.emit("error", "In the first round you HAVE to play the 3 of clubs!")
-				return
+				if (room.roundNumber === 1 && lastHand.length === 0 && 
+					!room.rankedGame && !cards.some(c => c.value === "3" && c.suit === Suit.CLUBS))
+				{
+					socket.emit("error", "In the first round you HAVE to play the 3 of clubs!")
+					return
+				}
 			}
 			if (lastHand.length !== 0)
 			{
@@ -375,7 +379,8 @@ export const olhoRoomGameStarter = (room: PresidentRoom) => {
 	const rankedPlayers = Object.entries(hands).filter(([id, p]) => p.position !== PresidentPosition.Neutral)
 	let startingId = ""
 	room.rankedGame = rankedPlayers.length !== 0
-	for (let index = 0; index < shuffledDeck.length; index++)
+	const cardDrawNum = !DEV ? shuffledDeck.length : OLHO_QUICK_GAME ? 10 : shuffledDeck.length
+	for (let index = 0; index < cardDrawNum; index++)
 	{
 		if (x == room.players.length) x = 0;
 		const player = room.players[x];
@@ -384,10 +389,10 @@ export const olhoRoomGameStarter = (room: PresidentRoom) => {
 			hands[player.id].state = PresidentPlayerState.WAITING
 		}
 		hands[player.id].hand.push(shuffledDeck[index])
-		/*if (index === 0)
+		if (DEV && OLHO_QUICK_GAME && index === 0)
 		{
 			hands[player.id].hand.push({value: "JOKER", suit: Suit.CLUBS})
-		}*/
+		}
 		if (!room.rankedGame && shuffledDeck[index].value === "3" && shuffledDeck[index].suit === Suit.CLUBS)
 		{
 			hands[player.id].state = PresidentPlayerState.PLAYING

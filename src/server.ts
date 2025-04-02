@@ -1,17 +1,14 @@
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
-import dotenv from 'dotenv';
 import { readUsersFromFile } from './utils';
-
 
 import roomsHandler, { leaveRoomHandler } from "./ws-handlers/room"
 import userHandler from "./ws-handlers/user"
 import cardGamesHandler from "./ws-handlers/cardGames"
 import { RoomStateBase } from './enums';
+import { PORT } from './config';
 
-dotenv.config();
-const PORT = process.env.PORT || 3000;
 
 const app = express();
 const server = http.createServer(app);
