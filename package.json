@@ -4,8 +4,9 @@
 	"main": "src/server.js",
 	"scripts": {
 		"start": "yarn build && node dist/bundle.js",
-		"dev": "nodemon",
-		"build": "webpack --mode production"
+		"dev": "set NODE_ENV=development && nodemon",
+		"build": "webpack --mode production",
+		"start-dev": "webpack --mode development && node dist/bundle.js"
 	},
 	"license": "MIT",
 	"dependencies": {

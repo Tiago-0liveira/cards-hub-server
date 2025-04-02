@@ -3,5 +3,5 @@
 		"src"
 	],
 	"ext": "ts",
-	"exec": "yarn start"
+	"exec": "yarn start-dev"
 }
