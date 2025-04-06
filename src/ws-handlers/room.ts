@@ -110,6 +110,10 @@ const handler = (io: Server, socket: Socket, rooms: Record<string, Room>, users:
 			return;
 		}
 		
+		if (rooms[arg.id].type === GameType.OLHO && rooms[arg.id].players.length === 7) {
+			socket.emit("error", "Room is full");
+			return;
+		}
 		rooms[arg.id].players.push(user)
 		onPlayerJoinRoom(rooms[arg.id].type, io, rooms[arg.id], rooms, user)
 		// TODO: activate code in the future for allowing spectators
