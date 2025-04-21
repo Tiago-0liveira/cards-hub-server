@@ -177,7 +177,7 @@ export const olhoSocketHandler = (io: Server, socket: Socket, rooms: Record<stri
 			if (olhoGetPlayersInGame(room).length === 0) {
 				olhoResetPlayerHands(room)
 			}
-			const nextPlayer = olhoGetNextPlayer(room, userId)
+			const nextPlayer = olhoGetNextPlayer(room, userId, true)
 			room.winningPlayer = nextPlayer[0]
 			if (abafou) {
 				const nextnextPlayer = olhoGetNextPlayer(room, nextPlayer[0])
@@ -379,7 +379,7 @@ export const olhoRoomGameStarter = (room: PresidentRoom) => {
 	const rankedPlayers = Object.entries(hands).filter(([id, p]) => p.position !== PresidentPosition.Neutral)
 	let startingId = ""
 	room.rankedGame = rankedPlayers.length !== 0
-	const cardDrawNum = !DEV ? shuffledDeck.length : OLHO_QUICK_GAME ? 10 : shuffledDeck.length
+	const cardDrawNum = !DEV ? shuffledDeck.length : OLHO_QUICK_GAME ? 16 : shuffledDeck.length
 	for (let index = 0; index < cardDrawNum; index++)
 	{
 		if (x == room.players.length) x = 0;
@@ -467,7 +467,7 @@ export const olhoRoomGameStarter = (room: PresidentRoom) => {
 	}
 }
 
-const olhoGetNextPlayer = (room: PresidentRoom, userId: string): [string, PresidentPlayer] => {
+const olhoGetNextPlayer = (room: PresidentRoom, userId: string, justInGame: boolean = false): [string, PresidentPlayer] => {
 	const playerInGame = olhoGetPlayersInGame(room)
 	if (playerInGame.length === 1) {
 		if (playerInGame[0][0] !== userId)
@@ -481,7 +481,7 @@ const olhoGetNextPlayer = (room: PresidentRoom, userId: string): [string, Presid
 		Idx = (Idx + 1) % room.playerOrder.length
 		pId = room.playerOrder[Idx]
 		player = room.hands[pId]
-	} while (player === undefined || player.state === PresidentPlayerState.PASSED ||
+	} while (player === undefined || (player.state === PresidentPlayerState.PASSED && !justInGame) ||
 	player.state === PresidentPlayerState.FINISHED || player.hand.length === 0)
 	return [pId, player]
 }
